@@ -26,7 +26,10 @@ func NewGoogleAuthenticator() (*Authenticator, error) {
 		ClientSecret: clientSecret,
 		RedirectURL:  clientRedirect,
 		Endpoint:     google.Endpoint,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile",
+		},
 	}
 
 	authenticator := &Authenticator{

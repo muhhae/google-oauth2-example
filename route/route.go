@@ -2,7 +2,6 @@ package route
 
 import (
 	"encoding/gob"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -64,7 +63,7 @@ func authHandler(a *auth.Authenticator) echo.HandlerFunc {
 		if err != nil {
 			return c.String(http.StatusUnauthorized, "Failed to authenticate")
 		}
-		sess.Values["token"] = token
+		sess.Values["access_token"] = token.AccessToken
 		err = sess.Save(c.Request(), c.Response())
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
@@ -85,29 +84,32 @@ func profileHandler() echo.HandlerFunc {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
-		storedToken := sess.Values["token"]
+		storedToken := sess.Values["access_token"]
 		if storedToken == nil {
 			return c.String(http.StatusUnauthorized, "No Token")
 		}
-		token := sess.Values["token"].(oauth2.Token)
+		accessToken := storedToken.(string)
 
-		content := "Token : " + fmt.Sprint(token) + "\n"
-		content += "Access : " + fmt.Sprint(token.AccessToken) + "\n"
-		content += "Type : " + fmt.Sprint(token.Type()) + "\n"
-		content += "RefreshToken : " + fmt.Sprint(token.RefreshToken) + "\n"
-		content += "Expiry : " + fmt.Sprint(token.Expiry) + "\n"
-		content += "Valid : " + fmt.Sprint(token.Valid()) + "\n"
-
-		response, err := http.Get("https://www.googleapis.com/oauth2/v1/userinfo?access_token=" + token.AccessToken)
+		response, err := http.Get("https://www.googleapis.com/oauth2/v1/userinfo?access_token=" + accessToken)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
 		if response.StatusCode != http.StatusOK {
 			return c.String(http.StatusInternalServerError, "IDK")
 		}
-
 		defer response.Body.Close()
 		b, err := io.ReadAll(response.Body)
+		content := string(b)
+
+		response, err = http.Get("https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=" + accessToken)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		if response.StatusCode != http.StatusOK {
+			return c.String(http.StatusInternalServerError, "IDK")
+		}
+		defer response.Body.Close()
+		b, err = io.ReadAll(response.Body)
 
 		content += string(b)
 
