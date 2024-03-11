@@ -1,7 +1,9 @@
 package route
 
 import (
+	"context"
 	"encoding/gob"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -11,6 +13,7 @@ import (
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/muhhae/learn-google-oauth2/auth"
+	"github.com/muhhae/learn-google-oauth2/view"
 	"golang.org/x/oauth2"
 )
 
@@ -23,6 +26,8 @@ func New(a *auth.Authenticator) *echo.Echo {
 	gob.Register(oauth2.Token{})
 
 	sessionStore := sessions.NewCookieStore([]byte(sessionSecret))
+	sessionStore.Options.HttpOnly = true
+
 	router.Use(session.Middleware(sessionStore))
 
 	router.GET("/login", loginHandler(a))
@@ -63,7 +68,8 @@ func authHandler(a *auth.Authenticator) echo.HandlerFunc {
 		if err != nil {
 			return c.String(http.StatusUnauthorized, "Failed to authenticate")
 		}
-		sess.Values["access_token"] = token.AccessToken
+		sess.Values["token"] = token
+		sess.Values["id_token"] = token.Extra("id_token")
 		err = sess.Save(c.Request(), c.Response())
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
@@ -74,7 +80,8 @@ func authHandler(a *auth.Authenticator) echo.HandlerFunc {
 
 func homeHandler() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		return c.String(http.StatusOK, "Home Page")
+		view.Home().Render(context.Background(), c.Response().Writer)
+		return c.NoContent(http.StatusOK)
 	}
 }
 
@@ -84,34 +91,45 @@ func profileHandler() echo.HandlerFunc {
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
-		storedToken := sess.Values["access_token"]
-		if storedToken == nil {
-			return c.String(http.StatusUnauthorized, "No Token")
-		}
-		accessToken := storedToken.(string)
 
+		storedToken := sess.Values["token"]
+		if storedToken == nil {
+			return c.String(http.StatusUnauthorized, "No session found please login first")
+		}
+
+		token := storedToken.(oauth2.Token)
+		token.Valid()
+		if token.Valid() == false {
+			return c.String(http.StatusUnauthorized, "Your token has been expired, please login again")
+		}
+		accessToken := token.AccessToken
 		response, err := http.Get("https://www.googleapis.com/oauth2/v1/userinfo?access_token=" + accessToken)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
+
 		if response.StatusCode != http.StatusOK {
 			return c.String(http.StatusInternalServerError, "IDK")
 		}
+
 		defer response.Body.Close()
 		b, err := io.ReadAll(response.Body)
 		content := string(b)
-
 		response, err = http.Get("https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=" + accessToken)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
+
 		if response.StatusCode != http.StatusOK {
 			return c.String(http.StatusInternalServerError, "IDK")
 		}
+
 		defer response.Body.Close()
 		b, err = io.ReadAll(response.Body)
+		content += string(b) + "\n"
 
-		content += string(b)
+		idToken := fmt.Sprint(sess.Values["id_token"])
+		content += "ID TOKEN : " + idToken + "\n"
 
 		return c.String(http.StatusOK, content)
 	}

@@ -3,6 +3,8 @@ module github.com/muhhae/learn-google-oauth2
 go 1.22.0
 
 require (
+	github.com/a-h/templ v0.2.598
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/sessions v1.2.2
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo-contrib v0.15.0
@@ -13,7 +15,6 @@ require (
 require (
 	cloud.google.com/go/compute v1.20.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
